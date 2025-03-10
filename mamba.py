@@ -28,7 +28,7 @@ class Mamba(nn.Module):
                 attn_drop_rate=0,
                 d_state=self.args.d_state,
                 input_resolution=self.args.img_size)
-            
+        print("layers:", num_encoder_layers, num_decoder_layers)
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
         self.encoder_c = Encoder(encoder_layer, num_encoder_layers, encoder_norm, args=self.args)
         self.encoder_s = Encoder(encoder_layer, num_encoder_layers, encoder_norm, args=self.args)

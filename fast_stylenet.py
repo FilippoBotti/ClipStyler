@@ -172,8 +172,9 @@ class Net(nn.Module):
         self.decoder = decoder
 
         self.mamba = Mamba(
+            ##SET NUMBER OF ENCODER AND DECODER LAYER (originally 3-3)
             num_encoder_layers=3,
-            num_decoder_layers=3,
+            num_decoder_layers=5,
             d_model = 512,
             args = Args()
         )
@@ -205,19 +206,24 @@ class Net(nn.Module):
         assert (target.requires_grad is False)
         return self.mse_loss(input, target)
 
-    def forward(self, content, style):
-        print(content.shape, style.shape)
-        ct = self.encode_with_intermediate(content)
-        content = self.patch_emb(content) # B D H W
-
-        _,_,h,w = content.shape
-
-        #TODO implement the conv method
-        # style_cls = style[0,:].unsqueeze(0).repeat(content.shape[0],1) # B D
-        # style_cls = style.squeeze(1)
+    def forward(self, content, style, test_bool):
         
-        # style = style_cls.unsqueeze(-1).unsqueeze(-1).repeat(1,1,h,w) # B D H W
-        hs = self.mamba(style.float(),  None, content, None, None)
+        #print(content.shape, style.shape)          ##content([4, 3, 224, 224]), style([1, 512])
+        ct = self.encode_with_intermediate(content)
+        content = self.patch_emb(content) # B D H W     
+        p,d,h,w = content.shape
+
+        #style_adp = style.view(1, d, 1, 1)
+        #style_adp = style_adp.repeat(p, 1, h, w)
+
+        ##REPETITION OF STYLE TENSOR from ([1,512]) to ([4,512,28,28])
+        style_cls = style[0,:].unsqueeze(0).repeat(content.shape[0],1) # B D
+        style_cls = style.squeeze(1)
+        style_cls = style_cls.unsqueeze(-1).unsqueeze(-1).repeat(p,1,h,w) # B D H W
+
+        #print(content.shape, style_cls.shape)       ##content([4, 512, 28, 28]), style([4, 512, 28, 28])
+        
+        hs = self.mamba(style_cls.float(),  None, content, None, None)
         g_t = self.decoder(hs)
 
         g_t_feats = self.encode_with_intermediate(g_t)

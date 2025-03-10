@@ -116,7 +116,7 @@ def get_image_prior_losses(inputs_jit):
 
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content_dir', type=str, default ='./')
+parser.add_argument('--content_dir', type=str, default ='./train_set_small')
 parser.add_argument('--test_dir', type=str, default ='./test_set_small') 
 parser.add_argument('--hr_dir', type=str)  
 parser.add_argument('--img_dir', type=str, default ='./test_set_small')     
@@ -169,8 +169,6 @@ def compose_text_with_templates(text: str, templates=imagenet_templates) -> list
 source = "a Photo"
 
 
-    
-
 content_tf = train_transform(args.crop_size)
 hr_tf = hr_transform()
 test_tf = test_transform()
@@ -207,8 +205,10 @@ if args.hr_dir is not None:
     hr_images = next(hr_iter)
     hr_images = hr_images.cuda()
 
-# prompts = ["Desert sand", "acrylic colour", "Stone wall", "Watercolor painting with purple brush"]
-prompt = "Desert sand"
+prompt = "Van Gogh painting"
+print("\nStyle:", prompt)
+
+#prompts = ["Desert sand", "acrylic colour", "Stone wall", "Watercolor painting with purple brush", "Underwater", "Van Gogh painting"]
 # text_features_list = []
 # text_source_list = []
 # with torch.no_grad():
@@ -225,27 +225,28 @@ prompt = "Desert sand"
 #         text_source = text_source.mean(axis=0, keepdim=True)
 #         text_source /= text_source.norm(dim=-1, keepdim=True)
 #         text_source_list.append(text_source)
-        
 # text_features = torch.stack(text_features_list, dim=0)
 # text_source = torch.stack(text_source_list, dim=0) 
 
-template_text = compose_text_with_templates(args.text, imagenet_templates)
-tokens = clip.tokenize(template_text).to(device)
-text_features = clip_model.encode_text(tokens).detach()
-text_features = text_features.mean(axis=0, keepdim=True)
-text_features /= text_features.norm(dim=-1, keepdim=True)
-template_source = compose_text_with_templates(source, imagenet_templates)
-tokens_source = clip.tokenize(template_source).to(device)
-text_source = clip_model.encode_text(tokens_source).detach()
-text_source = text_source.mean(axis=0, keepdim=True)
-text_source /= text_source.norm(dim=-1, keepdim=True)
+with torch.no_grad():
+    template_text = compose_text_with_templates(prompt, imagenet_templates)
+    tokens = clip.tokenize(template_text).to(device)
+    text_features = clip_model.encode_text(tokens).detach()
+    text_features = text_features.mean(axis=0, keepdim=True)
+    text_features /= text_features.norm(dim=-1, keepdim=True)
+    template_source = compose_text_with_templates(source, imagenet_templates)
+    tokens_source = clip.tokenize(template_source).to(device)
+    text_source = clip_model.encode_text(tokens_source).detach()
+    text_source = text_source.mean(axis=0, keepdim=True)
+    text_source /= text_source.norm(dim=-1, keepdim=True)
         
         
 for i in tqdm(range(args.max_iter)):
     adjust_learning_rate(optimizer, iteration_count=i)
     content_images = next(content_iter).to(device)
 
-        
+    istest = False
+
     loss_c, out_img = network(content_images, text_features)
     loss_patch = 0
     aug_img = []
@@ -302,16 +303,25 @@ for i in tqdm(range(args.max_iter)):
 
     if (i + 1) % args.save_img_interval ==0 :
         with torch.no_grad():
-            loss_c, out_img = network(content_images, text_features)
-            test_out1 = adjust_contrast(out_img,1.5)
-            output_test = torch.cat([content_images,test_out1],dim=0)
+            #FILE NAME: test_(num_layer_encoder)-(num_layer_decoder)_prompt_(num_iteration).png
+            output_name = './output_fast/test_3-5_'+ prompt +'_'+ str(i+1)+'.png'
 
-            output_name = './output_fast/test1_'+ args.text +'_'+ str(i+1)+'.png'
+            ##RESULT WITH TRAINING IMAGES
+            #loss_c, out_img = network(content_images, text_features, True)
+            #out_img = adjust_contrast(out_img,1.5)
+            #output_test = torch.cat([content_images,out_img],dim=0)
+            #save_image(output_test, str(output_name),nrow=out_img.size(0),normalize=True,scale_each=True)
+
+            ##RESULT WITH IMAGES OF TEST SET
+            _, test_out1 = network( test_images1, text_features)       #torch.Size([4, 3, 512, 512])
+            test_out1 = adjust_contrast(test_out1,1.5)
+            output_test = torch.cat([test_images1,test_out1],dim=0)
             save_image(output_test, str(output_name),nrow=test_out1.size(0),normalize=True,scale_each=True)
+            
             
             if args.hr_dir is not None:
                 _, test_out = network(hr_images, text_features)
                 test_out = adjust_contrast(test_out,1.5)
-                output_name = './output_fast/hr_'+ args.name+'_'+ args.text +'_'+ str(i+1)+'.png'
+                output_name = './output_fast/hr2_'+ args.name +'_'+ prompt +'_'+ str(i+1)+'.png'
                 save_image(test_out, str(output_name),nrow=test_out.size(0),normalize=True,scale_each=True)
             
