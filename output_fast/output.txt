@@ -1,1 +1,2 @@
 directory for output images
+name: test_(num layer encorder mamba)_(num layer decoder mamba)_(textual style)_(num iteration).png

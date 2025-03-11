@@ -117,7 +117,7 @@ def get_image_prior_losses(inputs_jit):
 parser = argparse.ArgumentParser()
 # Basic options
 parser.add_argument('--content_dir', type=str, default ='./train_set_small')
-parser.add_argument('--test_dir', type=str, default ='./test_set_small') 
+parser.add_argument('--test_dir', type=str, default ='./test_set_small_new') 
 parser.add_argument('--hr_dir', type=str)  
 parser.add_argument('--img_dir', type=str, default ='./test_set_small')     
 parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')

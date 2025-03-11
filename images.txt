@@ -1,0 +1,16 @@
+train_set_small:
+    images of train set (small)
+    
+test_set_small:
+    images of test set (small)
+    same img of training
+
+test_set_small_new:
+    images of test set (small)
+    new img 
+
+test_set:
+    images of test set (for DIV2K dataset)
+
+DIV2K_img:
+    DIV2K dataset for training

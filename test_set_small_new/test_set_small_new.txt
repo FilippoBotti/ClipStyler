@@ -1,2 +1,0 @@
-directory for images of test set (small)
-new img
