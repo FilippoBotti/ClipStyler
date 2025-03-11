@@ -206,7 +206,7 @@ class Net(nn.Module):
         assert (target.requires_grad is False)
         return self.mse_loss(input, target)
 
-    def forward(self, content, style, test_bool):
+    def forward(self, content, style):
         
         #print(content.shape, style.shape)          ##content([4, 3, 224, 224]), style([1, 512])
         ct = self.encode_with_intermediate(content)
