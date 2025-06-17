@@ -11,8 +11,12 @@ models/*
 
 DIV2K_img/*.png
 
-output_fast/*.png
+output_fast/*
+plot/*
 
 test_set/*
 !test_set/*.txt
 !test_set/
+
+modifica_score.py
+*.csv

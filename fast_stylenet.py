@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mamba import Mamba
 from utility.ViT_helper import to_2tuple
-
+DIM_STYLE = 512
 class decoder_cls(nn.Module):
     def __init__(self):
         super(decoder_cls, self).__init__()
@@ -72,6 +72,18 @@ decoder = nn.Sequential(
     nn.Conv2d(64, 3, (3, 3)),
 )
 
+mlp = nn.Sequential(
+    nn.Linear(512, 512),
+    nn.ReLU(),
+    nn.Linear(512, 512),
+)
+#mlp = nn.Sequential(
+#    nn.LayerNorm(512),
+#    nn.Linear(512, 512*2),
+#    nn.ReLU(),
+#    nn.Dropout(0.2),
+#    nn.Linear(512*2, 512)
+#)
 vgg = nn.Sequential(
     nn.Conv2d(3, 3, (1, 1)),
     nn.ReflectionPad2d((1, 1, 1, 1)),
@@ -161,7 +173,7 @@ class Args():
         self.rnd_style = False
 
 class Net(nn.Module):
-    def __init__(self, encoder):
+    def __init__(self, encoder, l_enc_s, l_enc_c, l_dec, liv_lin, liv_mlp, vssm):
         super(Net, self).__init__()
         enc_layers = list(encoder.children())
         self.enc_1 = nn.Sequential(*enc_layers[:4])  # input -> relu1_1
@@ -169,15 +181,25 @@ class Net(nn.Module):
         self.enc_3 = nn.Sequential(*enc_layers[11:18])  # relu2_1 -> relu3_1
         self.enc_4 = nn.Sequential(*enc_layers[18:31])  # relu3_1 -> relu4_1
 
-        self.decoder = decoder
+        self.islinear = True if liv_lin == 1 else False
+        self.isMlp = True if liv_mlp == 1 else False
 
+        self.decoder = decoder
+        
         self.mamba = Mamba(
             ##SET NUMBER OF ENCODER AND DECODER LAYER (originally 3-3)
-            num_encoder_layers=3,
-            num_decoder_layers=5,
+            num_encoder_layers_s=l_enc_s,
+            num_encoder_layers_c=l_enc_c,
+            num_decoder_layers=l_dec,
             d_model = 512,
-            args = Args()
+            args = Args(), 
+            type_vssm = vssm
         )
+        
+        #self.style_linear = nn.Linear(512, 512)
+        #self.style_linear = self.style_linear.half()
+        self.style_mlp = mlp
+        self.style_mlp = self.style_mlp.half()
 
         self.mse_loss = nn.MSELoss()
         self.patch_emb = PatchEmbed()
@@ -208,24 +230,31 @@ class Net(nn.Module):
 
     def forward(self, content, style):
         
-        #print(content.shape, style.shape)          ##content([4, 3, 224, 224]), style([1, 512])
+        ##print(content.shape, style.shape)          ##content([4, 3, 224, 224]), style([1, 512])
         ct = self.encode_with_intermediate(content)
         content = self.patch_emb(content) # B D H W     
+    
         p,d,h,w = content.shape
 
-        #style_adp = style.view(1, d, 1, 1)
-        #style_adp = style_adp.repeat(p, 1, h, w)
+        ##style_adp = style.view(1, d, 1, 1)
+        ##style_adp = style_adp.repeat(p, 1, h, w)
+
+        ##lineare o mlp
+        #if self.islinear:
+        #    style = self.style_linear(style)
+        if self.isMlp:
+            style = self.style_mlp(style)
 
         ##REPETITION OF STYLE TENSOR from ([1,512]) to ([4,512,28,28])
         style_cls = style[0,:].unsqueeze(0).repeat(content.shape[0],1) # B D
         style_cls = style.squeeze(1)
         style_cls = style_cls.unsqueeze(-1).unsqueeze(-1).repeat(p,1,h,w) # B D H W
 
-        #print(content.shape, style_cls.shape)       ##content([4, 512, 28, 28]), style([4, 512, 28, 28])
+        ##content([4, 512, 28, 28]), style([4, 512, 28, 28])
+        ##print(style_cls.shape, content.shape)
+        hs = self.mamba(style_cls.float(),  None, content, None, None)      ##hs([4, 512, 28, 28])
+        g_t = self.decoder(hs)                                              ##g_t([4, 3, 224, 224])
         
-        hs = self.mamba(style_cls.float(),  None, content, None, None)
-        g_t = self.decoder(hs)
-
         g_t_feats = self.encode_with_intermediate(g_t)
 
         loss_c = self.calc_content_loss(g_t_feats[-1], ct[-1])

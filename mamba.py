@@ -7,34 +7,81 @@ from torch import nn, Tensor
 import numpy as np
 device = torch.device("cuda")
 from vssm_arch import VSSBlock
-# from .single_direction_vssm_arch import VSSBlock
-# from .double_direction_vssm_arch import VSSBlock
+from single_direction_vssm_arch import VSSBlockSingle
+from double_direction_vssm_arch import VSSBlockDouble
 
 
 class Mamba(nn.Module):
-    def __init__(self, d_model=512, nhead=8, num_encoder_layers=3,
+    def __init__(self, d_model=512, nhead=8, num_encoder_layers_c=1, num_encoder_layers_s=0,
                  num_decoder_layers=3, dim_feedforward=512, dropout=0.1,
                  activation="relu", normalize_before=False,
-                 return_intermediate_dec=False, args=None):
+                 return_intermediate_dec=False, args=None, type_vssm = 0):
         super().__init__()
         
         self.args = args
         
         if self.args is not None:
-            encoder_layer = VSSBlock(
+            if type_vssm == 2:
+                print("VSSM: VSSBlockDouble")
+                encoder_layer = VSSBlockDouble(
                 hidden_dim=d_model,
                 drop_path=0,
                 norm_layer=nn.LayerNorm,
                 attn_drop_rate=0,
                 d_state=self.args.d_state,
                 input_resolution=self.args.img_size)
-        print("layers:", num_encoder_layers, num_decoder_layers)
+            if type_vssm == 1:
+                print("VSSM: VSSBlockSingle")
+                encoder_layer = VSSBlockSingle(
+                hidden_dim=d_model,
+                drop_path=0,
+                norm_layer=nn.LayerNorm,
+                attn_drop_rate=0,
+                d_state=self.args.d_state,
+                input_resolution=self.args.img_size)
+            else:
+                print("VSSM: VSSBlock")
+                encoder_layer = VSSBlock(
+                hidden_dim=d_model,
+                drop_path=0,
+                norm_layer=nn.LayerNorm,
+                attn_drop_rate=0,
+                d_state=self.args.d_state,
+                input_resolution=self.args.img_size)
+            
+            
+        print("layers:", num_encoder_layers_s, num_encoder_layers_c, num_decoder_layers)
+        self.enc_c = num_encoder_layers_c
+        #self.enc_s = num_encoder_layers_s
+        self.dec = num_decoder_layers
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
-        self.encoder_c = Encoder(encoder_layer, num_encoder_layers, encoder_norm, args=self.args)
-        self.encoder_s = Encoder(encoder_layer, num_encoder_layers, encoder_norm, args=self.args)
+        self.encoder_c = Encoder(encoder_layer, num_encoder_layers_c, encoder_norm, args=self.args)
+        #self.encoder_s = Encoder(encoder_layer, num_encoder_layers_s, encoder_norm, args=self.args)
+        self.style_linear = nn.Linear(d_model, d_model)
 
         if self.args is not None:
-            decoder_layer = VSSBlock(
+            if type_vssm == 1:
+                decoder_layer = VSSBlockSingle(
+                hidden_dim=d_model,
+                drop_path=dropout,
+                norm_layer=nn.LayerNorm,
+                attn_drop_rate=0,
+                d_state=self.args.d_state,
+                input_resolution=self.args.img_size,
+                is_cross=True,
+                args=args)
+            if type_vssm == 2:
+                decoder_layer = VSSBlockDouble(
+                hidden_dim=d_model,
+                drop_path=dropout,
+                norm_layer=nn.LayerNorm,
+                attn_drop_rate=0,
+                d_state=self.args.d_state,
+                input_resolution=self.args.img_size,
+                is_cross=True,
+                args=args)
+            else:
+                decoder_layer = VSSBlock(
                 hidden_dim=d_model,
                 drop_path=dropout,
                 norm_layer=nn.LayerNorm,
@@ -68,7 +115,7 @@ class Mamba(nn.Module):
         pos_embed_c = F.interpolate(pos_c, mode='bilinear',size= style.shape[-2:])
 
         ###flatten NxCxHxW to HWxNxC     
-        style = style.flatten(2).permute(2, 0, 1)
+        style = style.flatten(2).permute(2, 0, 1)               ##torch.Size([784, 1, 512])
         if pos_embed_s is not None:
             pos_embed_s = pos_embed_s.flatten(2).permute(2, 0, 1)
       
@@ -76,11 +123,17 @@ class Mamba(nn.Module):
         if pos_embed_c is not None:
             pos_embed_c = pos_embed_c.flatten(2).permute(2, 0, 1)
      
-        style = self.encoder_s(style, src_key_padding_mask=mask, pos=pos_embed_s)
-        content = self.encoder_c(content, src_key_padding_mask=mask, pos=pos_embed_c)
-        hs = self.decoder(content, style, memory_key_padding_mask=mask,
-                          pos=pos_embed_s, query_pos=pos_embed_c)[0]
+        ##style = self.style_linear(style)
+        if (self.enc_c != 0):
+            content = self.encoder_c(content, src_key_padding_mask=mask, pos=pos_embed_c)
+        #if (self.enc_s != 0):
+        #    style = self.encoder_s(style, src_key_padding_mask=mask, pos=pos_embed_s)
+
         
+        
+        hs = self.decoder(content, style, memory_key_padding_mask=mask,
+                          pos=pos_embed_s, query_pos=pos_embed_c)[0]        ##torch.Size([784, 1, 512])
+
         ### HWxNxC to NxCxHxW to
         N, B, C= hs.shape          
         H = int(np.sqrt(N))
