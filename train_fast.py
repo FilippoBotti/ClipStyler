@@ -240,7 +240,6 @@ with torch.no_grad():
     text_source = text_source.mean(axis=0, keepdim=True)
     text_source /= text_source.norm(dim=-1, keepdim=True)
         
-        
 for i in tqdm(range(args.max_iter)):
     adjust_learning_rate(optimizer, iteration_count=i)
     content_images = next(content_iter).to(device)
