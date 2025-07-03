@@ -8,7 +8,7 @@ import StyleNet
 import utils
 import clip
 import torch.nn.functional as F
-from template import imagenet_templates
+from utility.template import imagenet_templates
 from torchvision.utils import save_image
 from torchvision.transforms.functional import adjust_contrast
 import cog

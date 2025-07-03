@@ -10,7 +10,7 @@ import StyleNet
 import utils
 import clip
 import torch.nn.functional as F
-from template import imagenet_templates
+from utility.template import imagenet_templates
 
 from PIL import Image 
 import PIL 

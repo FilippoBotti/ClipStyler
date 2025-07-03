@@ -72,12 +72,70 @@ decoder = nn.Sequential(
     nn.Conv2d(64, 3, (3, 3)),
 )
 
+decoder4 = nn.Sequential(
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(512, 256, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'), 
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 256, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 256, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 128, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'), 
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(128, 128, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(128, 64, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(64, 3, (3, 3)),
+)
+
+decoder16 = nn.Sequential(
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(512, 256, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'), 
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 256, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 256, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 256, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 128, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(128, 128, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(128, 64, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(64, 64, (3, 3)),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(64, 3, (3, 3)),
+)
+
 mlp = nn.Sequential(
     nn.Linear(512, 512),
     nn.ReLU(),
     nn.Linear(512, 512),
 )
-#mlp = nn.Sequential(
+#mlp2 = nn.Sequential(
 #    nn.LayerNorm(512),
 #    nn.Linear(512, 512*2),
 #    nn.ReLU(),
@@ -158,11 +216,12 @@ class PatchEmbed(nn.Module):
     def forward(self, x):
         B, C, H, W = x.shape
         x = self.proj(x)
-
+        #print(x.shape)
+        #exit()
         return x
 
 class Args():
-    def __init__(self):
+    def __init__(self, enc_s, enc_c, dec, vssm):
         self.use_mamba_enc = True
         self.use_mamba_dec = True
         self.use_pos_embed = False
@@ -171,9 +230,13 @@ class Args():
         self.c_style = False
         self.c_input = True
         self.rnd_style = False
+        self.enc_s = enc_s
+        self.enc_c = enc_c
+        self.dec = dec
+        self.vssm = vssm
 
 class Net(nn.Module):
-    def __init__(self, encoder, l_enc_s, l_enc_c, l_dec, liv_lin, liv_mlp, vssm):
+    def __init__(self, encoder, mamba, dec, mlp_style, embedding):
         super(Net, self).__init__()
         enc_layers = list(encoder.children())
         self.enc_1 = nn.Sequential(*enc_layers[:4])  # input -> relu1_1
@@ -181,28 +244,11 @@ class Net(nn.Module):
         self.enc_3 = nn.Sequential(*enc_layers[11:18])  # relu2_1 -> relu3_1
         self.enc_4 = nn.Sequential(*enc_layers[18:31])  # relu3_1 -> relu4_1
 
-        self.islinear = True if liv_lin == 1 else False
-        self.isMlp = True if liv_mlp == 1 else False
-
-        self.decoder = decoder
-        
-        self.mamba = Mamba(
-            ##SET NUMBER OF ENCODER AND DECODER LAYER (originally 3-3)
-            num_encoder_layers_s=l_enc_s,
-            num_encoder_layers_c=l_enc_c,
-            num_decoder_layers=l_dec,
-            d_model = 512,
-            args = Args(), 
-            type_vssm = vssm
-        )
-        
-        #self.style_linear = nn.Linear(512, 512)
-        #self.style_linear = self.style_linear.half()
-        self.style_mlp = mlp
-        self.style_mlp = self.style_mlp.half()
-
+        self.mamba = mamba
+        self.decode = dec
+        self.style_mlp = mlp_style
         self.mse_loss = nn.MSELoss()
-        self.patch_emb = PatchEmbed()
+        self.patch_emb = embedding
 
         # fix the encoder
         for name in ['enc_1', 'enc_2', 'enc_3', 'enc_4']:
@@ -230,32 +276,23 @@ class Net(nn.Module):
 
     def forward(self, content, style):
         
-        ##print(content.shape, style.shape)          ##content([4, 3, 224, 224]), style([1, 512])
+        #print(content.shape, style.shape)          ##content([4, 3, 224, 224]), style([1, 512])
         ct = self.encode_with_intermediate(content)
         content = self.patch_emb(content) # B D H W     
-    
         p,d,h,w = content.shape
 
-        ##style_adp = style.view(1, d, 1, 1)
-        ##style_adp = style_adp.repeat(p, 1, h, w)
-
-        ##lineare o mlp
-        #if self.islinear:
-        #    style = self.style_linear(style)
-        if self.isMlp:
-            style = self.style_mlp(style)
+        style = self.style_mlp(style)
 
         ##REPETITION OF STYLE TENSOR from ([1,512]) to ([4,512,28,28])
         style_cls = style[0,:].unsqueeze(0).repeat(content.shape[0],1) # B D
         style_cls = style.squeeze(1)
         style_cls = style_cls.unsqueeze(-1).unsqueeze(-1).repeat(p,1,h,w) # B D H W
 
-        ##content([4, 512, 28, 28]), style([4, 512, 28, 28])
-        ##print(style_cls.shape, content.shape)
+        ##content, style([4, 512, 28, 28])
         hs = self.mamba(style_cls.float(),  None, content, None, None)      ##hs([4, 512, 28, 28])
-        g_t = self.decoder(hs)                                              ##g_t([4, 3, 224, 224])
+        g_t = self.decode(hs)                                              ##g_t([4, 3, 224, 224])
         
         g_t_feats = self.encode_with_intermediate(g_t)
-
         loss_c = self.calc_content_loss(g_t_feats[-1], ct[-1])
+        
         return loss_c, g_t
