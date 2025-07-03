@@ -8,11 +8,11 @@ import torch.utils.data as data
 from PIL import Image, ImageFile
 from torchvision import transforms
 from tqdm import tqdm
-from template import imagenet_templates
+from utility.template import imagenet_templates
 import fast_stylenet
 from sampler import InfiniteSamplerWrapper
 import clip
-from template import imagenet_templates
+from utility.template import imagenet_templates
 import torch.nn.functional as F
 from torchvision.utils import save_image
 from torchvision.transforms.functional import adjust_contrast

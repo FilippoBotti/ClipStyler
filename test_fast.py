@@ -76,10 +76,10 @@ parser.add_argument('--vssm', type=int, default=4)
 parser.add_argument('--patch', type=int, default=8)
 parser.add_argument('--batch_size', type=int, default=1)
 
-parser.add_argument('--decoder_path', type=str, default='./model_fast/mamba_iter_1000.pth')
+parser.add_argument('--decoder_path', type=str, default='./model_fast/decoder_iter_1000.pth')
 parser.add_argument('--mamba_path', type=str, default='./model_fast/mamba_iter_1000.pth')
-parser.add_argument('--embedding_path', type=str, default='./model_fast/mamba_iter_1000.pth')
-parser.add_argument('--mlp_path', type=str, default='./model_fast/mamba_iter_1000.pth')
+parser.add_argument('--embedding_path', type=str, default='./model_fast/embedding_iter_1000.pth')
+parser.add_argument('--mlp_path', type=str, default='./model_fast/mlp_iter_1000.pth')
 parser.add_argument('--addtext', type=str, default='')
 
 parser.add_argument('--inference', type=int, default=0)

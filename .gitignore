@@ -1,5 +1,6 @@
 
 __pycache__/
+.conda/
 
 model_fast/*
 !model_fast/*.txt
@@ -14,9 +15,10 @@ DIV2K_img/*.png
 output_fast/*
 plot/*
 
-test_set/*
-!test_set/*.txt
-!test_set/
+test_set2/
+test_set3/
 
 modifica_score.py
+calcolo_medie.py
+convert_csv.py
 *.csv

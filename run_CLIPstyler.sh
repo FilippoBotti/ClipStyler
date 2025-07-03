@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
 ##prompts=('Watercolor painting with purple brush' 'a monet style painting' 'the great wave of kanagawa by Hokusai' 'a sketch with black pencil' 'Wheatfield by Vincent van Gogh' 'stone wall' 'neon light' 'underwater' 'pop art' 'white wool')
-##prompts=('stone wall' 'underwater')
 
-#prompts=('Watercolor painting with purple brush' 'monet painting' 'stone wall' 'a sketch with black pencil' 'underwater' 'Wheatfield by Vincent van Gogh' 'white wool' 'fire')
-#prompts=('a sketch with black pencil' 'underwater' 'Wheatfield by Vincent van Gogh' 'neon light' 'pop art' 'white wool')
-prompts=('stone wall' 'a sketch with black pencil' 'underwater' 'Wheatfield by Vincent van Gogh' 'white wool' 'fire')
+prompts=('Watercolor painting with purple brush' 'underwater' 'a monet style painting' 'stone wall' 'Wheatfield by Vincent van Gogh' 'a sketch with black pencil')
+
 for i in "${prompts[@]}"
-do
+do 
+    python3 train_fast.py --text "$i"
+
+    #examples with other options
+    #python3 train_fast.py --layer_enc_s_mamba 0 --layer_enc_c_mamba 1 --layer_dec_mamba 1 --text "$i" --vssm 2 --addtext "vssm2"
+    #python3 train_fast.py --layer_enc_s_mamba 0 --layer_enc_c_mamba 1 --layer_dec_mamba 1 --text "$i" --patch 4 --addtext "patch4"
+
+    #to test inference or load models
     
-    #python3 train_fast.py --layer_enc_c_mamba 3 --layer_dec_mamba 3 --max_iter 1000 --save_img_interval 25 --text "$i"
-    #python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 3 --max_iter 1000 --save_img_interval 25 --text "$i"
-    #python3 train_fast.py --layer_enc_c_mamba 3 --layer_dec_mamba 1 --max_iter 1000 --save_img_interval 25 --text "$i"
-    python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 1 --max_iter 1000 --save_img_interval 25 --text "$i"
-    python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 1 --max_iter 1000 --addtext 'batch8' --batch_size 8 --save_img_interval 25 --text "$i"
-    python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 1 --max_iter 1000 --clip_weight 20.0 --content_weight 1.0 --save_img_interval 25 --text "$i"
-    python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 1 --max_iter 1000 --clip_weight 5.0 --content_weight 10.0 --save_img_interval 25 --text "$i"
-    python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 1 --max_iter 1000 --addtext 'thresh1' --thresh 1 --save_img_interval 25 --text "$i"
-    #python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 0 --max_iter 1000 --save_img_interval 25 --text "$i"
-    #python3 train_fast.py --layer_enc_c_mamba 0 --layer_dec_mamba 1 --max_iter 1000 --save_img_interval 25 --text "$i"
+    #text_model="${i// /_}"
+    #python3 test_fast.py --text "$text_model" --decoder_path './model_fast/decoder_Wheatfield_by_Vincent_van_Gogh_iter_500.pth' --mamba_path './model_fast/mamba_Wheatfield_by_Vincent_van_Gogh_iter_500.pth' --embedding_path './model_fast/embedding_Wheatfield_by_Vincent_van_Gogh_iter_500.pth' --mlp_path './model_fast/style_mlp_Wheatfield_by_Vincent_van_Gogh_iter_500.pth'
+    #python3 test_fast.py --inference 1
+
+
 done
-
-##python3 train_fast.py --layer_enc_c_mamba 3 --layer_dec_mamba 3 --max_iter 1000 --save_img_interval 100 --text 'a sketch with black pencil'
-#python3 train_fast.py --layer_enc_c_mamba 1 --layer_dec_mamba 1 --linear 1 --max_iter 1000 --save_img_interval 25 --text 'stone wall'
-
